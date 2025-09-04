@@ -20,6 +20,8 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.util.Log
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 
 class MainActivity : ComponentActivity(), SensorEventListener {
 
@@ -60,6 +62,12 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
     @Composable
     fun SensorUI() {
+        // Context has to be grabbed inside these functions
+        val context = LocalContext.current
+        // Remember is needed to keep the state when the UI is redrawn
+        // (Not really necessary for our purpose but it throws an error if I don't)
+        var readContent by remember { mutableStateOf("") }
+
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             // Start the sensor
             Button(onClick = {
@@ -79,6 +87,21 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                 Text(if (isSensorActive) "Turn Off Sensor" else "Turn On Sensor")
             }
             Text(text = sensorValue, modifier = Modifier.padding(top = 16.dp))
+
+            // Read stored data (persists between runs)
+            Button(onClick = {
+                if (!isSensorActive) {
+                    // Data should not be read while sensor is active
+                    val reader = SensorDataManager()
+                    readContent = reader.readFromFile(context)
+                }
+            }) {
+                Text(if (isSensorActive) "Turn Off Sensor to Read" else "Read Sensor Data")
+            }
+
+            if (readContent.isNotEmpty()) {
+                Text(text = readContent)
+            }
         }
     }
 }
