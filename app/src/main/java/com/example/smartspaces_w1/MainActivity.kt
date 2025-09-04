@@ -1,5 +1,6 @@
 package com.example.smartspaces_w1
 
+import android.Manifest
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,7 +21,6 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.util.Log
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
@@ -29,6 +29,12 @@ import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
+import android.content.pm.PackageManager
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import android.widget.Toast
 
 class MainActivity : ComponentActivity(), SensorEventListener {
 
@@ -40,14 +46,26 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     // Entry is a data type that the chart will understand, so it should be worked with throughout
     private val chartEntries = mutableStateListOf<Entry>()
     private var isChartVisible by mutableStateOf(false)
-
     private var startTime: Long = 0
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private val requestPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+            val coarseGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+
+            if (fineGranted || coarseGranted) {
+                Toast.makeText(this, "Location permission granted", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Location permission denied", Toast.LENGTH_SHORT).show()
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         accelSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        checkLocationPermission()
         setContent {
             SensorUI()
         }
@@ -75,7 +93,46 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         if (chartEntries.size > 1000) {
             chartEntries.removeAt(0)
         }
+
+        // Location Data collection
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient.getCurrentLocation(
+                com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
+                null
+            ).addOnSuccessListener { location ->
+                val lat = location?.latitude?.toFloat()
+                val lon = location?.longitude?.toFloat()
+
+                /*
+                Removing this temporarily to prevent unnecessary writing
+                val newSensorData = SensorData(
+                    System.currentTimeMillis(),
+                    acceleration,
+                    lat,
+                    lon
+                )
+                newSensorData.writeData(this)
+                 */
+            }
+        }
     }
+
+    private fun checkLocationPermission() {
+        val fineLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+        val coarseLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+
+        if (fineLocation != PackageManager.PERMISSION_GRANTED &&
+            coarseLocation != PackageManager.PERMISSION_GRANTED) {
+            // Launch permission request
+            requestPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
+
 
     @Composable
     fun SensorUI() {
