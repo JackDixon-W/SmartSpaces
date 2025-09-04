@@ -20,8 +20,15 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.util.Log
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
+import com.github.mikephil.charting.charts.LineChart
+import com.github.mikephil.charting.data.Entry
+import com.github.mikephil.charting.data.LineData
+import com.github.mikephil.charting.data.LineDataSet
 
 class MainActivity : ComponentActivity(), SensorEventListener {
 
@@ -30,7 +37,11 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     private var isSensorActive by mutableStateOf(false)
     private var accelSensor: Sensor? = null
     private var sensorValue by mutableStateOf("Press the button to start.")
+    // Entry is a data type that the chart will understand, so it should be worked with throughout
+    private val chartEntries = mutableStateListOf<Entry>()
+    private var isChartVisible by mutableStateOf(false)
 
+    private var startTime: Long = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,8 +67,14 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         sensorValue = "Acceleration (m/s^2): $acceleration"
         Log.i("SensorData", "Acceleration (m/s^2): $acceleration")
 
-        val newSensorData = SensorData(System.currentTimeMillis(),acceleration)
-        newSensorData.writeData(this)
+        //val newSensorData = SensorData(System.currentTimeMillis(),acceleration)
+        //newSensorData.writeData(this)
+        val currentTime = (System.currentTimeMillis() - startTime) / 1000
+
+        chartEntries.add(Entry(currentTime.toFloat(), acceleration))
+        if (chartEntries.size > 1000) {
+            chartEntries.removeAt(0)
+        }
     }
 
     @Composable
@@ -74,11 +91,13 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                 isSensorActive = !isSensorActive
 
                 if (isSensorActive) {
+                    startTime = System.currentTimeMillis()
                     sensorValue = "Listening for sensor..."
                     // Listener being registered is equivalent to turning it on
                     accelSensor?.also { acceleration ->
                         sensorManager.registerListener(this@MainActivity, acceleration, SensorManager.SENSOR_DELAY_NORMAL)
                     }
+                    isChartVisible = true
                 } else {
                     sensorValue = "Sensor is off"
                     sensorManager.unregisterListener(this@MainActivity)
@@ -87,6 +106,19 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                 Text(if (isSensorActive) "Turn Off Sensor" else "Turn On Sensor")
             }
             Text(text = sensorValue, modifier = Modifier.padding(top = 16.dp))
+
+            /* THIS IS THE PART YOU ADD AFTER THE OTHERS
+            Button(onClick = {
+                if (!isSensorActive) {
+                    val clearer = SensorDataManager()
+                    clearer.clearFile(context)
+                }
+            }) {
+                Text("Clear data.txt")
+            } */
+            if (isChartVisible) {
+                LineChartComposable(entries = chartEntries)
+            }
 
             // Read stored data (persists between runs)
             Button(onClick = {
@@ -103,5 +135,46 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                 Text(text = readContent)
             }
         }
+    }
+
+    @Composable
+    fun LineChartComposable(entries: List<Entry>) {
+        // Context has to be grabbed inside these functions
+        val context = LocalContext.current
+
+        AndroidView(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 16.dp),
+            // Init the Chart
+            factory = { context ->
+                LineChart(context).apply {
+                    description.isEnabled = false
+                    setTouchEnabled(true)
+                    isDragEnabled = true
+                    setScaleEnabled(true)
+                    setPinchZoom(true)
+                }
+            },
+            // On an update
+            update = { chart ->
+                val dataSet = LineDataSet(entries, "m/s^2").apply {
+                    setDrawCircles(false)
+                    setDrawValues(true)
+                    lineWidth = 5f
+                    color = context.getColor(android.R.color.holo_blue_light)
+                }
+
+                chart.axisLeft.axisMinimum = -10f
+                chart.axisLeft.axisMaximum = 10f
+                chart.axisRight.isEnabled = false
+
+                val lineData = LineData(dataSet)
+                chart.data = lineData
+
+                // Refresh the chart
+                chart.invalidate()
+            }
+        )
     }
 }
