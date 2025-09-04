@@ -20,10 +20,6 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.util.Log
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity(), SensorEventListener {
 
@@ -32,19 +28,12 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     private var isSensorActive by mutableStateOf(false)
     private var accelSensor: Sensor? = null
     private var sensorValue by mutableStateOf("Press the button to start.")
-    private lateinit var sensorDataRepository: SensorDataRepository
-    private var allSensorData by mutableStateOf<List<SensorData>>(emptyList())
 
-    private var searchJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         accelSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-
-        val database = SensorDataDatabase.getDatabase(this)
-        val dao = database.sensorDataDao()
-        sensorDataRepository = SensorDataRepository(dao)
 
         setContent {
             SensorUI()
@@ -65,11 +54,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         sensorValue = "Acceleration (m/s^2): $acceleration"
         Log.i("SensorData", "Acceleration (m/s^2): $acceleration")
 
-        val newSensorData = SensorData(time = System.currentTimeMillis(), value = acceleration)
-        // CoroutineScope is just an asynchronous process
-        CoroutineScope(Dispatchers.IO).launch {
-            sensorDataRepository.insertSensorData(newSensorData)
-        }
+        //val newSensorData = SensorData(System.currentTimeMillis(),acceleration)
+
     }
 
     @Composable
@@ -93,22 +79,6 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                 Text(if (isSensorActive) "Turn Off Sensor" else "Turn On Sensor")
             }
             Text(text = sensorValue, modifier = Modifier.padding(top = 16.dp))
-
-            // Display all sensor data collected
-            Button(onClick = {
-                searchJob = CoroutineScope(Dispatchers.IO).launch {
-                    sensorDataRepository.allSensorData.collect { data ->
-                        allSensorData = data
-                    }
-                }
-            }) {
-                Text(if (searchJob?.isActive == true) "Searching..." else "Retrieve Database")
-            }
-
-            // Display all the retrieved data
-            allSensorData.forEach { data ->
-                Text(text = "ID: ${data.id}, Value: ${data.value}, Timestamp: ${data.time}")
-            }
         }
     }
 }
