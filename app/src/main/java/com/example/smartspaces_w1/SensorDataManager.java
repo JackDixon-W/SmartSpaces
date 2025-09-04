@@ -10,8 +10,18 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 
 public class SensorDataManager {
-    // Much of this read function was taken from the below link:
-    // https://stackoverflow.com/questions/14376807/read-write-string-from-to-a-file-in-android
+    private float avgVal = 0;
+    private long dataNum = 1;
+
+    public float getAvgVal() { return avgVal; }
+
+    public void setAvgVal(float val) { avgVal = val; }
+
+    /*
+    Much of this read function was taken from the below link:
+    https://stackoverflow.com/questions/14376807/read-write-string-from-to-a-file-in-android
+    We considered making modifications to it but it proved unnecessary
+    */
     public String readFromFile(Context context) {
 
         String ret = "";
@@ -40,5 +50,21 @@ public class SensorDataManager {
         }
 
         return ret;
+    }
+
+    public boolean clearFile(Context context) {
+        boolean deleted = context.deleteFile("data.txt");
+        if (deleted) {
+            Log.i("File Deletion", "data.txt was successfully deleted.");
+        } else {
+            Log.e("File Deletion", "Failed to delete data.txt.");
+        }
+        return deleted;
+    }
+
+    public float movingAverage(float newVal) {
+        avgVal = avgVal + (newVal - avgVal)/dataNum;
+        dataNum++;
+        return avgVal;
     }
 }
