@@ -1,5 +1,6 @@
 package com.example.smartspaces_w1
 
+import android.Manifest
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,13 +21,19 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.util.Log
+import androidx.annotation.RequiresPermission
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
+
 
 class MainActivity : ComponentActivity(), SensorEventListener {
 
     private lateinit var sensorManager: SensorManager
     // mutableState forces refresh on a change (kinda like React)
+
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
     private var isSensorActive by mutableStateOf(false)
     private var accelSensor: Sensor? = null
     private var sensorValue by mutableStateOf("Press the button to start.")
@@ -36,7 +43,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         super.onCreate(savedInstanceState)
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         accelSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         setContent {
             SensorUI()
         }
@@ -51,13 +58,36 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         // Not needed
     }
 
+    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     override fun onSensorChanged(event: SensorEvent) {
-        val acceleration = event.values[0]
+        val acceleration = event.values[2]
+
         sensorValue = "Acceleration (m/s^2): $acceleration"
         Log.i("SensorData", "Acceleration (m/s^2): $acceleration")
 
-        val newSensorData = SensorData(System.currentTimeMillis(),acceleration)
-        newSensorData.writeData(this)
+        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+            val lat = location?.latitude?.toFloat() ?: 0f
+            val lon = location?.longitude?.toFloat() ?: 0f
+
+            val newSensorData = SensorData(
+                System.currentTimeMillis(),
+                acceleration,
+                lat,
+                lon
+            )
+            newSensorData.writeData(this)
+        }.addOnFailureListener { exception ->
+            Log.e("LocationError", "Failed to get location: ${exception.message}")
+
+            // Write sensor data without location as fallback
+            val newSensorData = SensorData(
+                System.currentTimeMillis(),
+                acceleration,
+                0f,
+                0f
+            )
+            newSensorData.writeData(this)
+        }
     }
 
     @Composable
