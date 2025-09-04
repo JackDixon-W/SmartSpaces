@@ -81,22 +81,22 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         sensorValue = "Acceleration (m/s^2): $acceleration"
         Log.i("SensorData", "Acceleration (m/s^2): $acceleration")
 
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient.getCurrentLocation(
+                com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
+                null
+            ).addOnSuccessListener { location ->
+                val lat = location?.latitude?.toFloat() ?: 0f
+                val lon = location?.longitude?.toFloat() ?: 0f
 
-            fusedLocationClient.lastLocation
-                .addOnSuccessListener { location ->
-                    val lat = location?.latitude?.toFloat() ?: 0f
-                    val lon = location?.longitude?.toFloat() ?: 0f
-
-                    val newSensorData = SensorData(
-                        System.currentTimeMillis(),
-                        acceleration,
-                        lat,
-                        lon
-                    )
-                    newSensorData.writeData(this)
-                }
+                val newSensorData = SensorData(
+                    System.currentTimeMillis(),
+                    acceleration,
+                    lat,
+                    lon
+                )
+                newSensorData.writeData(this)
+            }
                 .addOnFailureListener { exception ->
                     Log.e("LocationError", "Failed to get location: ${exception.message}")
 
