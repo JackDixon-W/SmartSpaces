@@ -54,8 +54,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         sensorValue = "Acceleration (m/s^2): $acceleration"
         Log.i("SensorData", "Acceleration (m/s^2): $acceleration")
 
-        //val newSensorData = SensorData(System.currentTimeMillis(),acceleration)
-
+        val newSensorData = SensorData(System.currentTimeMillis(),acceleration)
+        newSensorData.writeData(this)
     }
 
     @Composable

@@ -4,6 +4,8 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.util.Log;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 
 public class SensorData {
@@ -35,19 +37,46 @@ public class SensorData {
         String val = Float.toString(this.value);
         String time = Long.toString(this.time);
         String finalWrite = "Time=" + time + "!" +
-                            "Accel=" + val + "!" +
-                            "Latitude=" + "!" +
-                            "Longitude=" + "!";
+                            "Accel=" + val + "!";
+                            //"Latitude=" + "!" +
+                            //"Longitude=" + "!";
         try {
-            // Writing files in such a publicly accessible way is generally a security risk
-            @SuppressLint("WorldReadableFiles")
-            OutputStreamWriter outputStreamWriter = new OutputStreamWriter(context.openFileOutput("data.txt", Context.MODE_WORLD_READABLE));
-            // Data should be a string, will need to format this properly
-            //outputStreamWriter.write(data);
+            OutputStreamWriter outputStreamWriter = new OutputStreamWriter(context.openFileOutput("data.txt", Context.MODE_PRIVATE));
+            outputStreamWriter.write(finalWrite);
             outputStreamWriter.close();
         }
         catch (IOException e) {
             Log.e("Exception", "File write failed: " + e.toString());
         }
+    }
+
+    public String readFromFile(Context context) {
+
+        String ret = "";
+
+        try {
+            InputStream inputStream = context.openFileInput("config.txt");
+
+            if ( inputStream != null ) {
+                InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+                BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
+                String receiveString = "";
+                StringBuilder stringBuilder = new StringBuilder();
+
+                while ( (receiveString = bufferedReader.readLine()) != null ) {
+                    stringBuilder.append("\n").append(receiveString);
+                }
+
+                inputStream.close();
+                ret = stringBuilder.toString();
+            }
+        }
+        catch (FileNotFoundException e) {
+            Log.e("login activity", "File not found: " + e.toString());
+        } catch (IOException e) {
+            Log.e("login activity", "Can not read file: " + e.toString());
+        }
+
+        return ret;
     }
 }
