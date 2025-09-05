@@ -60,6 +60,9 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         const val highPri = com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY
     }
 
+    // Filter variables
+    private lateinit var filter: SensorFilter
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -89,7 +92,11 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         //newSensorData.writeData(this)
         val currentTime = (System.currentTimeMillis() - startTime) / 1000
 
-        chartEntries.add(Entry(currentTime.toFloat(), acceleration))
+        // This is where our filtering takes place
+        filter.addToBuffer(acceleration)
+        val chartVal = filter.findAverage()
+
+        chartEntries.add(Entry(currentTime.toFloat(), chartVal))
         if (chartEntries.size > 1000) {
             chartEntries.removeAt(0)
         }
