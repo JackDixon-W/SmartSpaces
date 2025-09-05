@@ -68,6 +68,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         accelSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        filter = SensorFilter()
         locPermChecker()
         setContent {
             SensorUI()
