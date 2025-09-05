@@ -1,6 +1,7 @@
 package com.example.smartspaces_w1
 
 import android.Manifest
+import android.R
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -36,6 +37,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import android.widget.Toast
 
+// Need a data class to hold the colour of each entry
+data class EntryColour(
+    val entry: Entry,
+    var color: Int
+)
+
 class MainActivity : ComponentActivity(), SensorEventListener {
 
     // Sensor Variables
@@ -47,7 +54,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
     // Chart variables
     // Entry is a data type that the chart will understand, so it should be worked with throughout
-    private val chartEntries = mutableStateListOf<Entry>()
+    private val chartEntries = mutableStateListOf<EntryColour>()
     private var isChartVisible by mutableStateOf(false)
     private var startTime: Long = 0
 
@@ -91,30 +98,45 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
         //val newSensorData = SensorData(System.currentTimeMillis(),acceleration)
         //newSensorData.writeData(this)
-        val currentTime = (System.currentTimeMillis() - startTime) / 1000
+        val currentTime = System.currentTimeMillis() - startTime
 
         // This is where our filtering takes place
         filter.movingAverage(acceleration)
         val chartVal = filter.getAvgVal()
         Log.i("Chart Data", "Acceleration (m/s^2): $chartVal")
 
-        chartEntries.add(Entry(currentTime.toFloat(), chartVal))
+        val anomalyDetected = filter.isAnomaly(acceleration)
+        if (anomalyDetected) {
+            Log.i("Anomaly Detection", "Anomaly Value: $acceleration")
+        }
+
+        // Chart data being stored and visualised
+        val newEntry = EntryColour(
+            entry = Entry(currentTime.toFloat(), chartVal),
+            color = if (filter.isAnomaly(acceleration)) getColor(android.R.color.holo_red_light) else getColor(android.R.color.holo_blue_light)
+        )
+        chartEntries.add(newEntry)
         if (chartEntries.size > 1000) {
             chartEntries.removeAt(0)
         }
 
         // Location Data collection
-        if (ContextCompat.checkSelfPermission(
-                this,
-                fineLoc
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            fusedLocationClient.getCurrentLocation(
-                highPri,
-                null
-            ).addOnSuccessListener { location ->
-                val lat = location?.latitude?.toFloat()
-                val lon = location?.longitude?.toFloat()
+        if (anomalyDetected) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    fineLoc
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                fusedLocationClient.getCurrentLocation(
+                    highPri,
+                    null
+                ).addOnSuccessListener { location ->
+                    val lat = location.latitude.toFloat()
+                    val lon = location.longitude.toFloat()
+
+                    val anomalyData = SensorData(currentTime,acceleration, lon, lat)
+                    anomalyData.writeData(this)
+                }
             }
         }
     }
@@ -210,7 +232,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     }
 
     @Composable
-    fun LineChartComposable(entries: List<Entry>) {
+    fun LineChartComposable(entries: List<EntryColour>) {
         // Context has to be grabbed inside these functions
         val context = LocalContext.current
 
@@ -230,11 +252,14 @@ class MainActivity : ComponentActivity(), SensorEventListener {
             },
             // On an update
             update = { chart ->
-                val dataSet = LineDataSet(entries, "m/s^2").apply {
+                val rawEntries = entries.map { it.entry }
+                val colors = entries.map { it.color }
+
+                val dataSet = LineDataSet(rawEntries, "m/s^2").apply {
                     setDrawCircles(false)
                     setDrawValues(true)
                     lineWidth = 5f
-                    color = context.getColor(android.R.color.holo_blue_light)
+                    setColors(colors)
                 }
 
                 chart.axisLeft.axisMinimum = -2f

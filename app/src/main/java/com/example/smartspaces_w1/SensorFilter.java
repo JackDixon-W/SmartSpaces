@@ -5,11 +5,11 @@ import java.util.List;
 
 public class SensorFilter {
     private List<Float> dataBuffer = new ArrayList<>();
-    private final int bufferSize = 70;
+    private final int bufferSize = 20;
     private float total= 0;
     private int current_index= 0;
     private float avgVal = 0;
-    private float threshold = 4;
+    private float threshold = 5;
 
     public float getAvgVal() {
         return avgVal;
