@@ -9,6 +9,7 @@ public class SensorFilter {
     private float total= 0;
     private int current_index= 0;
     private float avgVal = 0;
+    private float threshold = 4;
 
     public float getAvgVal() {
         return avgVal;
@@ -25,5 +26,9 @@ public class SensorFilter {
         }
         avgVal = total / dataBuffer.size();
         return avgVal;
+    }
+
+    public boolean isAnomaly(float newVal){
+        return Math.abs(newVal - avgVal) > threshold;
     }
 }
