@@ -39,33 +39,32 @@ import android.widget.Toast
 class MainActivity : ComponentActivity(), SensorEventListener {
 
     private lateinit var sensorManager: SensorManager
+
     // mutableState forces refresh on a change (kinda like React)
     private var isSensorActive by mutableStateOf(false)
     private var accelSensor: Sensor? = null
     private var sensorValue by mutableStateOf("Press the button to start.")
+
     // Entry is a data type that the chart will understand, so it should be worked with throughout
     private val chartEntries = mutableStateListOf<Entry>()
     private var isChartVisible by mutableStateOf(false)
     private var startTime: Long = 0
     private lateinit var fusedLocationClient: FusedLocationProviderClient
-    private val requestPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-            val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
-            val coarseGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
 
-            if (fineGranted || coarseGranted) {
-                Toast.makeText(this, "Location permission granted", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "Location permission denied", Toast.LENGTH_SHORT).show()
-            }
-        }
+    companion object {
+        const val fineLoc = Manifest.permission.ACCESS_FINE_LOCATION
+        const val coarseLoc = Manifest.permission.ACCESS_COARSE_LOCATION
+
+        const val highPri = com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY
+    }
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         accelSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-        checkLocationPermission()
+        locPermChecker()
         setContent {
             SensorUI()
         }
@@ -95,9 +94,13 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         }
 
         // Location Data collection
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(
+                this,
+                fineLoc
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
             fusedLocationClient.getCurrentLocation(
-                com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
+                highPri,
                 null
             ).addOnSuccessListener { location ->
                 val lat = location?.latitude?.toFloat()
@@ -117,17 +120,33 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         }
     }
 
-    private fun checkLocationPermission() {
-        val fineLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-        val coarseLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+    private val locPermRequest =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            val fineGranted = permissions[fineLoc] ?: false
+            val coarseGranted = permissions[coarseLoc] ?: false
+
+            if (fineGranted || coarseGranted) {
+                Toast.makeText(this, "Location permission granted", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Location permission denied", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+    private fun locPermChecker() {
+
+        val fineLocation =
+            ContextCompat.checkSelfPermission(this, fineLoc)
+        val coarseLocation =
+            ContextCompat.checkSelfPermission(this, coarseLoc)
 
         if (fineLocation != PackageManager.PERMISSION_GRANTED &&
-            coarseLocation != PackageManager.PERMISSION_GRANTED) {
+            coarseLocation != PackageManager.PERMISSION_GRANTED
+        ) {
             // Launch permission request
-            requestPermissionLauncher.launch(
+            locPermRequest.launch(
                 arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
+                    fineLoc,
+                    coarseLoc
                 )
             )
         }
@@ -142,7 +161,11 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         // (Not really necessary for our purpose but it throws an error if I don't)
         var readContent by remember { mutableStateOf("") }
 
-        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
             // Start the sensor
             Button(onClick = {
                 isSensorActive = !isSensorActive
@@ -152,7 +175,11 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                     sensorValue = "Listening for sensor..."
                     // Listener being registered is equivalent to turning it on
                     accelSensor?.also { acceleration ->
-                        sensorManager.registerListener(this@MainActivity, acceleration, SensorManager.SENSOR_DELAY_NORMAL)
+                        sensorManager.registerListener(
+                            this@MainActivity,
+                            acceleration,
+                            SensorManager.SENSOR_DELAY_NORMAL
+                        )
                     }
                     isChartVisible = true
                 } else {
