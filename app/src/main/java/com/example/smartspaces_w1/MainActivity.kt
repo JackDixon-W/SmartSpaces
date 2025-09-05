@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     }
 
     override fun onSensorChanged(event: SensorEvent) {
-        val acceleration = event.values[0]
+        val acceleration = event.values[2]
         sensorValue = "Acceleration (m/s^2): $acceleration"
         Log.i("SensorData", "Acceleration (m/s^2): $acceleration")
 
@@ -96,6 +96,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         // This is where our filtering takes place
         filter.movingAverage(acceleration)
         val chartVal = filter.getAvgVal()
+        Log.i("Chart Data", "Acceleration (m/s^2): $chartVal")
 
         chartEntries.add(Entry(currentTime.toFloat(), chartVal))
         if (chartEntries.size > 1000) {
@@ -236,8 +237,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                     color = context.getColor(android.R.color.holo_blue_light)
                 }
 
-                chart.axisLeft.axisMinimum = -10f
-                chart.axisLeft.axisMaximum = 10f
+                chart.axisLeft.axisMinimum = -2f
+                chart.axisLeft.axisMaximum = 20f
                 chart.axisRight.isEnabled = false
 
                 val lineData = LineData(dataSet)
