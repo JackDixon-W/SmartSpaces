@@ -195,9 +195,14 @@ class MainActivity : ComponentActivity(), SensorEventListener {
             if (readContent.isNotEmpty()) {
                 Text(text = readContent)
             }
+            val context = LocalContext.current
 
-            val intent: Intent = Intent(this, MapsActivity::class.java)
-            startActivity(intent)
+            Button(onClick = {
+                val intent = Intent(context, MapsActivity::class.java)
+                context.startActivity(intent)
+            }) {
+                Text("Open Map")
+            }
         }
     }
 
