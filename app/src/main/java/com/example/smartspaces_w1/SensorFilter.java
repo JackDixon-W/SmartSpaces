@@ -5,7 +5,7 @@ import java.util.List;
 
 public class SensorFilter {
     private List<Float> dataBuffer = new ArrayList<>();
-    private final int bufferSize = 10;
+    private final int bufferSize = 70;
     private float total= 0;
     private int current_index= 0;
     private float avgVal = 0;
