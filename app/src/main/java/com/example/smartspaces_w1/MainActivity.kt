@@ -1,5 +1,6 @@
 package com.example.smartspaces_w1
 
+import android.Manifest
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,8 +21,20 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.util.Log
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
+import com.github.mikephil.charting.charts.LineChart
+import com.github.mikephil.charting.data.Entry
+import com.github.mikephil.charting.data.LineData
+import com.github.mikephil.charting.data.LineDataSet
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
+import android.content.pm.PackageManager
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import android.widget.Toast
 
 class MainActivity : ComponentActivity(), SensorEventListener {
 
@@ -30,13 +43,29 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     private var isSensorActive by mutableStateOf(false)
     private var accelSensor: Sensor? = null
     private var sensorValue by mutableStateOf("Press the button to start.")
+    // Entry is a data type that the chart will understand, so it should be worked with throughout
+    private val chartEntries = mutableStateListOf<Entry>()
+    private var isChartVisible by mutableStateOf(false)
+    private var startTime: Long = 0
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private val requestPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+            val coarseGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
 
+            if (fineGranted || coarseGranted) {
+                Toast.makeText(this, "Location permission granted", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Location permission denied", Toast.LENGTH_SHORT).show()
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         accelSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        checkLocationPermission()
         setContent {
             SensorUI()
         }
@@ -56,9 +85,54 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         sensorValue = "Acceleration (m/s^2): $acceleration"
         Log.i("SensorData", "Acceleration (m/s^2): $acceleration")
 
-        val newSensorData = SensorData(System.currentTimeMillis(),acceleration)
-        newSensorData.writeData(this)
+        //val newSensorData = SensorData(System.currentTimeMillis(),acceleration)
+        //newSensorData.writeData(this)
+        val currentTime = (System.currentTimeMillis() - startTime) / 1000
+
+        chartEntries.add(Entry(currentTime.toFloat(), acceleration))
+        if (chartEntries.size > 1000) {
+            chartEntries.removeAt(0)
+        }
+
+        // Location Data collection
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient.getCurrentLocation(
+                com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
+                null
+            ).addOnSuccessListener { location ->
+                val lat = location?.latitude?.toFloat()
+                val lon = location?.longitude?.toFloat()
+
+                /*
+                Removing this temporarily to prevent unnecessary writing
+                val newSensorData = SensorData(
+                    System.currentTimeMillis(),
+                    acceleration,
+                    lat,
+                    lon
+                )
+                newSensorData.writeData(this)
+                 */
+            }
+        }
     }
+
+    private fun checkLocationPermission() {
+        val fineLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+        val coarseLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+
+        if (fineLocation != PackageManager.PERMISSION_GRANTED &&
+            coarseLocation != PackageManager.PERMISSION_GRANTED) {
+            // Launch permission request
+            requestPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
+
 
     @Composable
     fun SensorUI() {
@@ -74,11 +148,13 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                 isSensorActive = !isSensorActive
 
                 if (isSensorActive) {
+                    startTime = System.currentTimeMillis()
                     sensorValue = "Listening for sensor..."
                     // Listener being registered is equivalent to turning it on
                     accelSensor?.also { acceleration ->
                         sensorManager.registerListener(this@MainActivity, acceleration, SensorManager.SENSOR_DELAY_NORMAL)
                     }
+                    isChartVisible = true
                 } else {
                     sensorValue = "Sensor is off"
                     sensorManager.unregisterListener(this@MainActivity)
@@ -87,6 +163,19 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                 Text(if (isSensorActive) "Turn Off Sensor" else "Turn On Sensor")
             }
             Text(text = sensorValue, modifier = Modifier.padding(top = 16.dp))
+
+            /* THIS IS THE PART YOU ADD AFTER THE OTHERS
+            Button(onClick = {
+                if (!isSensorActive) {
+                    val clearer = SensorDataManager()
+                    clearer.clearFile(context)
+                }
+            }) {
+                Text("Clear data.txt")
+            } */
+            if (isChartVisible) {
+                LineChartComposable(entries = chartEntries)
+            }
 
             // Read stored data (persists between runs)
             Button(onClick = {
@@ -103,5 +192,46 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                 Text(text = readContent)
             }
         }
+    }
+
+    @Composable
+    fun LineChartComposable(entries: List<Entry>) {
+        // Context has to be grabbed inside these functions
+        val context = LocalContext.current
+
+        AndroidView(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 16.dp),
+            // Init the Chart
+            factory = { context ->
+                LineChart(context).apply {
+                    description.isEnabled = false
+                    setTouchEnabled(true)
+                    isDragEnabled = true
+                    setScaleEnabled(true)
+                    setPinchZoom(true)
+                }
+            },
+            // On an update
+            update = { chart ->
+                val dataSet = LineDataSet(entries, "m/s^2").apply {
+                    setDrawCircles(false)
+                    setDrawValues(true)
+                    lineWidth = 5f
+                    color = context.getColor(android.R.color.holo_blue_light)
+                }
+
+                chart.axisLeft.axisMinimum = -10f
+                chart.axisLeft.axisMaximum = 10f
+                chart.axisRight.isEnabled = false
+
+                val lineData = LineData(dataSet)
+                chart.data = lineData
+
+                // Refresh the chart
+                chart.invalidate()
+            }
+        )
     }
 }
