@@ -14,7 +14,6 @@ public class SensorFilter {
         return avgVal;
     }
 
-
     public float movingAverage(float newVal) {
         if (dataBuffer.size() < bufferSize) {
             total += newVal;
