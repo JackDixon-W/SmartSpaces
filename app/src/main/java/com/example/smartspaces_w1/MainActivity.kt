@@ -38,34 +38,34 @@ import android.widget.Toast
 
 class MainActivity : ComponentActivity(), SensorEventListener {
 
+    // Sensor Variables
     private lateinit var sensorManager: SensorManager
     // mutableState forces refresh on a change (kinda like React)
     private var isSensorActive by mutableStateOf(false)
     private var accelSensor: Sensor? = null
     private var sensorValue by mutableStateOf("Press the button to start.")
+
+    // Chart variables
     // Entry is a data type that the chart will understand, so it should be worked with throughout
     private val chartEntries = mutableStateListOf<Entry>()
     private var isChartVisible by mutableStateOf(false)
     private var startTime: Long = 0
-    private lateinit var fusedLocationClient: FusedLocationProviderClient
-    private val requestPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-            val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
-            val coarseGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
 
-            if (fineGranted || coarseGranted) {
-                Toast.makeText(this, "Location permission granted", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "Location permission denied", Toast.LENGTH_SHORT).show()
-            }
-        }
+    // Location Variables
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    companion object {
+        const val fineLoc = Manifest.permission.ACCESS_FINE_LOCATION
+        const val coarseLoc = Manifest.permission.ACCESS_COARSE_LOCATION
+
+        const val highPri = com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         accelSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-        checkLocationPermission()
+        locPermChecker()
         setContent {
             SensorUI()
         }
@@ -95,39 +95,45 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         }
 
         // Location Data collection
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(
+                this,
+                fineLoc
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
             fusedLocationClient.getCurrentLocation(
-                com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
+                highPri,
                 null
             ).addOnSuccessListener { location ->
                 val lat = location?.latitude?.toFloat()
                 val lon = location?.longitude?.toFloat()
-
-                /*
-                Removing this temporarily to prevent unnecessary writing
-                val newSensorData = SensorData(
-                    System.currentTimeMillis(),
-                    acceleration,
-                    lat,
-                    lon
-                )
-                newSensorData.writeData(this)
-                 */
             }
         }
     }
 
-    private fun checkLocationPermission() {
-        val fineLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-        val coarseLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+    private val locPermRequest =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            val fineGranted = permissions[fineLoc] ?: false
+            val coarseGranted = permissions[coarseLoc] ?: false
 
+            if (fineGranted || coarseGranted) {
+                Toast.makeText(this, "Location permission granted", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Location permission denied", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+    private fun locPermChecker() {
+        val fineLocation =
+            ContextCompat.checkSelfPermission(this, fineLoc)
+        val coarseLocation =
+            ContextCompat.checkSelfPermission(this, coarseLoc)
         if (fineLocation != PackageManager.PERMISSION_GRANTED &&
             coarseLocation != PackageManager.PERMISSION_GRANTED) {
             // Launch permission request
-            requestPermissionLauncher.launch(
+            locPermRequest.launch(
                 arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
+                    fineLoc,
+                    coarseLoc
                 )
             )
         }
