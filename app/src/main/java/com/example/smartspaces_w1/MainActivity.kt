@@ -93,8 +93,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         val currentTime = (System.currentTimeMillis() - startTime) / 1000
 
         // This is where our filtering takes place
-        filter.addToBuffer(acceleration)
-        val chartVal = filter.findAverage()
+        filter.movingAverage(acceleration)
+        val chartVal = filter.getAvgVal()
 
         chartEntries.add(Entry(currentTime.toFloat(), chartVal))
         if (chartEntries.size > 1000) {
