@@ -38,26 +38,27 @@ import android.widget.Toast
 
 class MainActivity : ComponentActivity(), SensorEventListener {
 
+    // Sensor Variables
     private lateinit var sensorManager: SensorManager
-
     // mutableState forces refresh on a change (kinda like React)
     private var isSensorActive by mutableStateOf(false)
     private var accelSensor: Sensor? = null
     private var sensorValue by mutableStateOf("Press the button to start.")
 
+    // Chart variables
     // Entry is a data type that the chart will understand, so it should be worked with throughout
     private val chartEntries = mutableStateListOf<Entry>()
     private var isChartVisible by mutableStateOf(false)
     private var startTime: Long = 0
-    private lateinit var fusedLocationClient: FusedLocationProviderClient
 
+    // Location Variables
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
     companion object {
         const val fineLoc = Manifest.permission.ACCESS_FINE_LOCATION
         const val coarseLoc = Manifest.permission.ACCESS_COARSE_LOCATION
 
         const val highPri = com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY
     }
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -105,17 +106,6 @@ class MainActivity : ComponentActivity(), SensorEventListener {
             ).addOnSuccessListener { location ->
                 val lat = location?.latitude?.toFloat()
                 val lon = location?.longitude?.toFloat()
-
-                /*
-                Removing this temporarily to prevent unnecessary writing
-                val newSensorData = SensorData(
-                    System.currentTimeMillis(),
-                    acceleration,
-                    lat,
-                    lon
-                )
-                newSensorData.writeData(this)
-                 */
             }
         }
     }
@@ -133,15 +123,12 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         }
 
     private fun locPermChecker() {
-
         val fineLocation =
             ContextCompat.checkSelfPermission(this, fineLoc)
         val coarseLocation =
             ContextCompat.checkSelfPermission(this, coarseLoc)
-
         if (fineLocation != PackageManager.PERMISSION_GRANTED &&
-            coarseLocation != PackageManager.PERMISSION_GRANTED
-        ) {
+            coarseLocation != PackageManager.PERMISSION_GRANTED) {
             // Launch permission request
             locPermRequest.launch(
                 arrayOf(
@@ -161,11 +148,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         // (Not really necessary for our purpose but it throws an error if I don't)
         var readContent by remember { mutableStateOf("") }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             // Start the sensor
             Button(onClick = {
                 isSensorActive = !isSensorActive
@@ -175,11 +158,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                     sensorValue = "Listening for sensor..."
                     // Listener being registered is equivalent to turning it on
                     accelSensor?.also { acceleration ->
-                        sensorManager.registerListener(
-                            this@MainActivity,
-                            acceleration,
-                            SensorManager.SENSOR_DELAY_NORMAL
-                        )
+                        sensorManager.registerListener(this@MainActivity, acceleration, SensorManager.SENSOR_DELAY_NORMAL)
                     }
                     isChartVisible = true
                 } else {
